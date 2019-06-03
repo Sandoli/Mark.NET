@@ -4,23 +4,28 @@ namespace Mark.NET
 {
     public class OrderBook : Core.OrderBook
     {
-        public int InstrumendId { get; }
+        public int InstrumentId { get; }
 
-        internal OrderBook(int instrumendId)
+        internal OrderBook(int instrumentId)
         {
-            InstrumendId = instrumendId;
+            InstrumentId = instrumentId;
         }
         
         public bool Create(Order order)
         {
-            return order.InstrumentId == InstrumendId && base.Create(order);
+            return order.InstrumentId == InstrumentId && base.Create(order);
+        }
+
+        public bool Modify(Order order, int? quantity = null, decimal? price = null)
+        {
+            return order.InstrumentId == InstrumentId && base.Update(order.OrderId, quantity, price);
         }
 
         public override string ToString()
         {
             var sb = new StringBuilder();
             sb.AppendLine("-----------------------------");
-            sb.AppendLine($"   Instrument[{InstrumendId}]");
+            sb.AppendLine($"   Instrument[{InstrumentId}]");
             sb.Append(base.ToString());
 
             return sb.ToString();

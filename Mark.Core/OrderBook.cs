@@ -26,7 +26,7 @@ namespace Mark.Core
                     if (bidOrders != null && bidOrders.Count != 0)
                     {
                         var firstOrder = bidOrders.First();
-                        yield return new Limit(bidOrders.Sum(p => p.Qty), firstOrder.Price, firstOrder.Side, bidOrders.Count);
+                        yield return new Limit(bidOrders.Sum(p => p.RemainingQty), firstOrder.Price, firstOrder.Side, bidOrders.Count);
                     }
                 }
             }
@@ -42,7 +42,7 @@ namespace Mark.Core
                     if (askOrders != null && askOrders.Count != 0)
                     {
                         var firstOrder = askOrders.First();
-                        yield return new Limit(askOrders.Sum(p => p.Qty), firstOrder.Price, firstOrder.Side, askOrders.Count);
+                        yield return new Limit(askOrders.Sum(p => p.RemainingQty), firstOrder.Price, firstOrder.Side, askOrders.Count);
                     }
                 }
             }
@@ -71,34 +71,31 @@ namespace Mark.Core
 
             if (order.Side == Side.Bid)
             {
-                List<Order> orderList;
-                if (!_bids.ContainsKey(order.Price))
-                {
-                    orderList = new List<Order>();
-                    _bids.Add(order.Price, orderList);
-                }
-                else
-                {
-                    orderList = _bids[order.Price];
-                }
-                orderList.Add(order);
+                InsertOrderOnSide(order, _bids);
             }
             else if (order.Side == Side.Ask)
             {
-                List<Order> orderList;
-                if (!_asks.ContainsKey(order.Price))
-                {
-                    orderList = new List<Order>();
-                    _asks.Add(order.Price, orderList);
-                }
-                else
-                {
-                    orderList = _asks[order.Price];
-                }
-                orderList.Add(order);
+                InsertOrderOnSide(order, _asks);
             }
 
             return true;
+        }
+
+        private static void InsertOrderOnSide(Order order, IDictionary<decimal, List<Order>> side)
+        {
+            List<Order> orderList;
+            if (!side.ContainsKey(order.Price))
+            {
+                orderList = new List<Order>();
+                side.Add(order.Price, orderList);
+            }
+            else
+            {
+                orderList = side[order.Price];
+            }
+
+            orderList.Add(order);
+            
         }
 
         private void CheckMatch(ref Order other)
@@ -151,26 +148,39 @@ namespace Mark.Core
             }
         }
 
-        protected bool Update(Order order)
+        protected bool Update(string orderId, int? quantity = null, decimal? price = null)
         {
-            if (order.Qty <= 0) return false;
+            if (quantity == null && price == null) return false;
+            
+            if (quantity != null && quantity <= 0) return false;
 
-            // TODO Simple update right now
-            if (_orderByIdList.TryGetValue(order.OrderId, out var orderInList))
+            if (!_orderByIdList.TryGetValue(orderId, out var order)) return false;
+            
+            // Price different ?
+            var priceChanged = price != null && order.Price != price;
+            var quantityChanged = quantity != null && order.Qty != quantity;
+                
+            if (priceChanged)
             {
-                // Side different ?
-                if (orderInList.Side != order.Side)
+                if (order.Side == Side.Ask)
                 {
-                    return false;
+                    RemoveOrderFromSide(order, _asks);
+                    order.UpdatePrice(price.Value);
+                    InsertOrderOnSide(order, _asks);
                 }
+                else if (order.Side == Side.Bid)
+                {
+                    RemoveOrderFromSide(order, _bids);
+                    order.UpdatePrice(price.Value);
+                    InsertOrderOnSide(order, _bids);
+                }
+                
+                return true;
+            }
 
-                // Price different ?
-                if (orderInList.Price != order.Price)
-                {
-                    // TODO Code this case
-                    return false;
-                }
-                orderInList.UpdateQty(order.Qty);
+            if (quantityChanged)
+            {
+                order.UpdateQty(quantity.Value);
                 return true;
             }
 
@@ -182,40 +192,30 @@ namespace Mark.Core
             if (_orderByIdList.Remove(order.OrderId))
             {
                 if (order.Side == Side.Bid)
-                {
-                    if (!_bids.ContainsKey(order.Price))
-                    {
-                        return false;
-                    }
+                    return RemoveOrderFromSide(order, _bids);
+                if (order.Side == Side.Ask)
+                    return RemoveOrderFromSide(order, _asks);
+            }
+            return false;
+        }
 
-                    var orderList = _bids[order.Price];
-                    for (int i = orderList.Count - 1; i >= 0; i--)
-                    {
-                        if (orderList[i].OrderId == order.OrderId)
-                        {
-                            orderList.RemoveAt(i);
-                            return true;
-                        }
-                    }
-                }
-                else if (order.Side == Side.Ask)
-                {
-                    if (!_asks.ContainsKey(order.Price))
-                    {
-                        return false;
-                    }
+        private static bool RemoveOrderFromSide(Order order, IReadOnlyDictionary<decimal, List<Order>> side)
+        {
+            if (!side.ContainsKey(order.Price))
+            {
+                return false;
+            }
 
-                    var orderList = _asks[order.Price];
-                    for (int i = orderList.Count - 1; i >= 0; i--)
-                    {
-                        if (orderList[i].OrderId == order.OrderId)
-                        {
-                            orderList.RemoveAt(i);
-                            return true;
-                        }
-                    }
+            var orderList = side[order.Price];
+            for (int i = orderList.Count - 1; i >= 0; i--)
+            {
+                if (orderList[i].OrderId == order.OrderId)
+                {
+                    orderList.RemoveAt(i);
+                    return true;
                 }
             }
+
             return false;
         }
 

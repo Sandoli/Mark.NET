@@ -6,12 +6,16 @@ namespace Mark.NET
     {
         public Dictionary<int, OrderBook> OrderBooks { get; }
 
-        public Market()
+        public Market(IEnumerable<int> instrIdList = null)
         {
             OrderBooks = new Dictionary<int, OrderBook>();
+            if (instrIdList != null)
+            {
+                foreach (var instrId in instrIdList) CreateOrderBook(instrId);
+            }
         }
 
-        public bool AddInstrument(int instrId)
+        public bool CreateOrderBook(int instrId)
         {
             if (!OrderBooks.ContainsKey(instrId))
             {

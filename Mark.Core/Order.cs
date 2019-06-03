@@ -43,7 +43,7 @@ namespace Mark.Core
             RemainingQty += deltaQty;
         }
 
-        public bool UpdatePrice(int price)
+        public bool UpdatePrice(decimal price)
         {
             bool canUpdate = !Filled && RemainingQty == Qty;
             if (canUpdate)
@@ -61,7 +61,7 @@ namespace Mark.Core
 
         public override string ToString()
         {
-            return (Side == Side.Bid) ? $"{Qty,3} {Price,6:0.00}" : $"{Price,-6:0.00} {Qty,-3}";
+            return (Side == Side.Bid) ? $"{RemainingQty,3} {Price,6:0.00}" : $"{Price,-6:0.00} {RemainingQty,-3}";
         }
     }
 }
