@@ -17,13 +17,11 @@ namespace Mark.NET
 
         public bool CreateOrderBook(int instrId)
         {
-            if (!OrderBooks.ContainsKey(instrId))
-            {
-                OrderBooks.Add(instrId, new OrderBook(instrId));
-                return true;
-            }
+            if (OrderBooks.ContainsKey(instrId)) return false;
+            
+            OrderBooks.Add(instrId, new OrderBook(instrId));
+            return true;
 
-            return false;
         }
 
         public OrderBook GetOrderBook(int instrId)

@@ -10,7 +10,7 @@ namespace Mark.NET
         {
             InstrumentId = instrumentId;
         }
-        
+
         public bool Create(Order order)
         {
             return order.InstrumentId == InstrumentId && base.Create(order);
@@ -18,7 +18,7 @@ namespace Mark.NET
 
         public bool Modify(Order order, int? quantity = null, decimal? price = null)
         {
-            return order.InstrumentId == InstrumentId && base.Update(order.OrderId, quantity, price);
+            return order.InstrumentId == InstrumentId && Update(order.OrderId, quantity, price);
         }
 
         public override string ToString()

@@ -17,7 +17,7 @@
 
         public override string ToString()
         {
-            return (Side == Side.Bid) ? $"{OrderCount,3} {Qty,3} {Price,6:0.000}" : $"{Price,-6:0.000} {Qty,-3} {OrderCount,-3}";
+            return Side == Side.Bid ? $"{OrderCount,3} {Qty,3} {Price,6:0.000}" : $"{Price,-6:0.000} {Qty,-3} {OrderCount,-3}";
         }
     }
 }

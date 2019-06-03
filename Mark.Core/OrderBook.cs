@@ -13,40 +13,25 @@ namespace Mark.Core
 
         private readonly Dictionary<string, Order> _orderByIdList;
 
-        protected IEnumerable<Order> BidOrders => _bids.SelectMany(p => p.Value);
+        protected IEnumerable<Order> BidOrders => _bids.Reverse().SelectMany(p => p.Value);
         protected IEnumerable<Order> AskOrders => _asks.SelectMany(p => p.Value);
 
-        protected IEnumerable<Limit> BidLimits
-        {
-            get
-            {
-                foreach (var pair in _bids.Reverse().Take(10))
-                {
-                    var bidOrders = pair.Value;
-                    if (bidOrders != null && bidOrders.Count != 0)
-                    {
-                        var firstOrder = bidOrders.First();
-                        yield return new Limit(bidOrders.Sum(p => p.RemainingQty), firstOrder.Price, firstOrder.Side, bidOrders.Count);
-                    }
-                }
-            }
-        }
+        protected IEnumerable<Limit> BidLimits =>
+            _bids.Reverse()
+                .Take(10)
+                .Select(pair => pair.Value)
+                .Where(bidOrders => bidOrders != null && bidOrders.Any())
+                .Select(bidOrders => (bidOrders, first : bidOrders.First()))
+                .Select(t => new Limit(t.bidOrders.Sum(p => p.RemainingQty), t.first.Price,
+                    t.first.Side, t.bidOrders.Count));
 
-        protected IEnumerable<Limit> AskLimits
-        {
-            get
-            {
-                foreach (var pair in _asks.Take(10))
-                {
-                    var askOrders = pair.Value;
-                    if (askOrders != null && askOrders.Count != 0)
-                    {
-                        var firstOrder = askOrders.First();
-                        yield return new Limit(askOrders.Sum(p => p.RemainingQty), firstOrder.Price, firstOrder.Side, askOrders.Count);
-                    }
-                }
-            }
-        }
+        protected IEnumerable<Limit> AskLimits =>
+            _asks.Take(10)
+                .Select(pair => pair.Value)
+                .Where(askOrders => askOrders != null && askOrders.Any())
+                .Select(askOrders => (askOrders, first : askOrders.First()))
+                .Select(t => new Limit(t.askOrders.Sum(p => p.RemainingQty), t.first.Price,
+                    t.first.Side, t.askOrders.Count));
 
 
         protected OrderBook()
@@ -59,7 +44,7 @@ namespace Mark.Core
 
         protected bool Create(Order order)
         {
-            CheckMatch(ref order);
+            CheckMatch(order);
             if (order.Filled) return true;
 
             if (_orderByIdList.ContainsKey(order.OrderId))
@@ -98,27 +83,25 @@ namespace Mark.Core
             
         }
 
-        private void CheckMatch(ref Order other)
+        private void CheckMatch(Order other)
         {
             if (other.Side == Side.Ask)
             {
                 foreach (var pair in _bids.Reverse())
                 {
-                    if (pair.Key >= other.Price)
+                    if (pair.Key < other.Price) continue;
+                    var orderList = pair.Value;
+                    for (int i = orderList.Count - 1; i >= 0; i--)
                     {
-                        var orderList = pair.Value;
-                        for (int i = orderList.Count - 1; i >= 0; i--)
-                        {
-                            var order = orderList[i];
-                            var execQty = Math.Min(order.Qty, other.Qty);
-                            var exec = new Exec(execQty, other.Price);
+                        var order = orderList[i];
+                        var execQty = Math.Min(order.Qty, other.Qty);
+                        var exec = new Exec(execQty, other.Price);
 
-                            other.AddExec(exec);
-                            order.AddExec(exec);
+                        other.AddExec(exec);
+                        order.AddExec(exec);
 
-                            if (order.Filled) orderList.RemoveAt(i);
-                            if (other.Filled) return;
-                        }
+                        if (order.Filled) orderList.RemoveAt(i);
+                        if (other.Filled) return;
                     }
 
                 }
@@ -127,21 +110,19 @@ namespace Mark.Core
             {
                 foreach (var pair in _asks)
                 {
-                    if (pair.Key <= other.Price)
+                    if (pair.Key > other.Price) continue;
+                    var orderList = pair.Value;
+                    for (int i = orderList.Count - 1; i >= 0; i--)
                     {
-                        var orderList = pair.Value;
-                        for (int i = orderList.Count - 1; i >= 0; i--)
-                        {
-                            var order = orderList[i];
-                            var execQty = Math.Min(order.Qty, other.Qty);
-                            var exec = new Exec(execQty, other.Price);
+                        var order = orderList[i];
+                        var execQty = Math.Min(order.Qty, other.Qty);
+                        var exec = new Exec(execQty, other.Price);
 
-                            other.AddExec(exec);
-                            order.AddExec(exec);
+                        other.AddExec(exec);
+                        order.AddExec(exec);
 
-                            if (order.Filled) orderList.RemoveAt(i);
-                            if (other.Filled) return;
-                        }
+                        if (order.Filled) orderList.RemoveAt(i);
+                        if (other.Filled) return;
                     }
 
                 }
@@ -162,18 +143,10 @@ namespace Mark.Core
                 
             if (priceChanged)
             {
-                if (order.Side == Side.Ask)
-                {
-                    RemoveOrderFromSide(order, _asks);
-                    order.UpdatePrice(price.Value);
-                    InsertOrderOnSide(order, _asks);
-                }
-                else if (order.Side == Side.Bid)
-                {
-                    RemoveOrderFromSide(order, _bids);
-                    order.UpdatePrice(price.Value);
-                    InsertOrderOnSide(order, _bids);
-                }
+                var side = GetSide(order);
+                RemoveOrderFromSide(order, side);
+                order.UpdatePrice(price.Value);
+                InsertOrderOnSide(order, side);
                 
                 return true;
             }
@@ -191,15 +164,22 @@ namespace Mark.Core
         {
             if (_orderByIdList.Remove(order.OrderId))
             {
-                if (order.Side == Side.Bid)
-                    return RemoveOrderFromSide(order, _bids);
-                if (order.Side == Side.Ask)
-                    return RemoveOrderFromSide(order, _asks);
+                return RemoveOrderFromSide(order, GetSide(order));
             }
             return false;
         }
 
-        private static bool RemoveOrderFromSide(Order order, IReadOnlyDictionary<decimal, List<Order>> side)
+        private IDictionary<decimal, List<Order>> GetSide(Order order)
+        {
+            switch (order.Side)
+            {
+                case Side.Bid: return _bids;
+                case Side.Ask: return _asks;
+                default: throw new IndexOutOfRangeException(nameof(order.Side));
+            }
+        }
+
+        private static bool RemoveOrderFromSide(Order order, IDictionary<decimal, List<Order>> side)
         {
             if (!side.ContainsKey(order.Price))
             {

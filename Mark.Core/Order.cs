@@ -61,7 +61,7 @@ namespace Mark.Core
 
         public override string ToString()
         {
-            return (Side == Side.Bid) ? $"{RemainingQty,3} {Price,6:0.00}" : $"{Price,-6:0.00} {RemainingQty,-3}";
+            return Side == Side.Bid ? $"{RemainingQty,3} {Price,6:0.00}" : $"{Price,-6:0.00} {RemainingQty,-3}";
         }
     }
 }

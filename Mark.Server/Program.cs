@@ -1,6 +1,7 @@
 ﻿using Mark.NET;
 using Mark.Common;
 using System;
+using System.Collections.Generic;
 
 namespace Mark.Server
 {
@@ -8,9 +9,9 @@ namespace Mark.Server
     {
         static void Main(string[] args)
         {
+            //market.CreateOrderBook(instrId);
             const int instrId = 10;
-            var market = new Market();
-            market.CreateOrderBook(instrId);
+            var market = new Market(new List<int>(instrId));
             var ob = market.GetOrderBook(instrId);
             //ob.Create(new Order(10, 10.0m, Side.Bid));
             //ob.Create(new Order(10, 11.0m, Side.Bid));
