@@ -10,6 +10,7 @@ namespace Mark.Common
         int RemainingQty { get; }
         decimal Price { get; }
         Side Side { get; }
+        int Priority { get;  }
         //IEnumerable<IExec> Execs { get; }
     }
 }

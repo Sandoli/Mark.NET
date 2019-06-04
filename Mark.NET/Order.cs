@@ -2,15 +2,26 @@
 
 namespace Mark.NET
 {
-    public class Order : Core.Order, IOrder
+    public class Order : IOrder
     {
-        #region Constructors
-        public Order(int instrumentId, int qty, decimal price, Side side) : base(qty, price, side)
+        public Core.Order CoreOrder { get; }
+
+        public Order(int instrumentId, int qty, decimal price, Side side)
         {
+            CoreOrder = new Core.Order(qty, price, side);
             InstrumentId = instrumentId;
         }
-        #endregion
 
-        public int InstrumentId { get; private set; }
+        public int InstrumentId { get; }
+        public string OrderId => CoreOrder.OrderId;
+
+        public int Qty => CoreOrder.Qty;
+
+        public int RemainingQty => CoreOrder.RemainingQty;
+
+        public decimal Price => CoreOrder.Price;
+
+        public Side Side => CoreOrder.Side;
+        public int Priority => CoreOrder.Priority;
     }
 }

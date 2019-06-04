@@ -11,29 +11,33 @@ namespace Mark.Core
         public int RemainingQty { get; private set; }
         public decimal Price { get; private set; }
         public Side Side { get; }
-        public string OrderId { get; }
+        public string OrderId { get; private set; }
         public IEnumerable<Exec> Execs => _execs;
 
         #region Flags
         public bool Filled => RemainingQty == 0;
+        public int Priority { get; internal set; }
 
         #endregion
-
-        #region Constructors
-        protected Order(int qty, decimal price, Side side) : this(qty, price, side, IdGenerator.CreateNewOrderId())
-        {
-        }
-
-        protected Order(int qty, decimal price, Side side, string orderId)
+        
+        public Order(int qty, decimal price, Side side)
         {
             Qty = qty;
             RemainingQty = qty;
             Price = price;
             Side = side;
-            OrderId = orderId;
+            OrderId = string.Empty;
             _execs = new List<Exec>();
         }
-        #endregion
+
+        internal void CreateOrderId(string orderId = null)
+        {
+            if (string.IsNullOrEmpty(orderId))
+            {
+                orderId = IdGenerator.CreateNewOrderId();
+            }
+            OrderId = orderId;
+        }
 
         public void UpdateQty(int qty)
         {

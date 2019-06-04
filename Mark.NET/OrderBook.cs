@@ -13,7 +13,7 @@ namespace Mark.NET
 
         public bool Create(Order order)
         {
-            return order.InstrumentId == InstrumentId && base.Create(order);
+            return order.InstrumentId == InstrumentId && base.Create(order.CoreOrder);
         }
 
         public bool Modify(Order order, int? quantity = null, decimal? price = null)

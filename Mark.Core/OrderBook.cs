@@ -13,8 +13,8 @@ namespace Mark.Core
 
         private readonly Dictionary<string, Order> _orderByIdList;
 
-        protected IEnumerable<Order> BidOrders => _bids.Reverse().SelectMany(p => p.Value);
-        protected IEnumerable<Order> AskOrders => _asks.SelectMany(p => p.Value);
+        public IEnumerable<Order> BidOrders => _bids.Reverse().SelectMany(p => p.Value);
+        public IEnumerable<Order> AskOrders => _asks.SelectMany(p => p.Value);
 
         protected IEnumerable<Limit> BidLimits =>
             _bids.Reverse()
@@ -44,14 +44,15 @@ namespace Mark.Core
 
         protected bool Create(Order order)
         {
-            CheckMatch(order);
-            if (order.Filled) return true;
-
-            if (_orderByIdList.ContainsKey(order.OrderId))
+            if (!string.IsNullOrEmpty(order.OrderId) && _orderByIdList.ContainsKey(order.OrderId))
             {
                 return false;
             }
 
+            order.CreateOrderId();
+            CheckMatch(order);
+            if (order.Filled) return true;
+            
             _orderByIdList.Add(order.OrderId, order);
 
             if (order.Side == Side.Bid)
@@ -80,7 +81,8 @@ namespace Mark.Core
             }
 
             orderList.Add(order);
-            
+            order.Priority = orderList.Count;
+
         }
 
         private void CheckMatch(Order other)
@@ -140,10 +142,11 @@ namespace Mark.Core
             // Price different ?
             var priceChanged = price != null && order.Price != price;
             var quantityChanged = quantity != null && order.Qty != quantity;
+
+            var side = GetSide(order);
                 
             if (priceChanged)
             {
-                var side = GetSide(order);
                 RemoveOrderFromSide(order, side);
                 order.UpdatePrice(price.Value);
                 InsertOrderOnSide(order, side);
@@ -153,11 +156,23 @@ namespace Mark.Core
 
             if (quantityChanged)
             {
-                order.UpdateQty(quantity.Value);
+                UpdateOrderOnSide(order, quantity.Value, side);
                 return true;
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// This method and RemoveOrderFromSide and InsertOrderOnSide will be the ones that will build the feed updates
+        /// </summary>
+        /// <param name="order"></param>
+        /// <param name="quantity"></param>
+        /// <param name="side"></param>
+        private static void UpdateOrderOnSide(Order order, int quantity, IDictionary<decimal, List<Order>> side)
+        {
+            // Recompute priority if quantity > order.Quantity
+            order.UpdateQty(quantity);
         }
 
         protected bool Cancel(Order order)
